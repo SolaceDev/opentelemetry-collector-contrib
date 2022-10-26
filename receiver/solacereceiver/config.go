@@ -66,11 +66,8 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.Flow.DelayedRetry == nil {
 		return errMissingFlowControl
-	} else {
-		// using DelayedRetry, must have >0 delay
-		if cfg.Flow.DelayedRetry.Delay <= 0 {
-			return errInvalidDelayedRetryDelay
-		}
+	} else if cfg.Flow.DelayedRetry.Delay <= 0 {
+		return errInvalidDelayedRetryDelay
 	}
 	return nil
 }

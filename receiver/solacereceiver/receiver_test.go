@@ -460,7 +460,7 @@ func TestReceiverFlowControlDelayedRetryMultipleRetries(t *testing.T) {
 	var retryCount int64 = 5
 	receiver.config.Flow.DelayedRetry.Delay = retryInterval
 	var err error
-	var currentRetries int64 = 0
+	var currentRetries int64
 	// we want to return an error at first, then set the next consumer to a noop consumer
 	receiver.nextConsumer, err = consumer.NewTraces(func(ctx context.Context, ld ptrace.Traces) error {
 		if currentRetries > 0 {

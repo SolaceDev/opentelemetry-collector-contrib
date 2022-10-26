@@ -233,7 +233,7 @@ func (s *solaceTracesReceiver) receiveMessage(ctx context.Context, service messa
 		return nil                            // don't propagate error, but don't continue forwarding traces
 	}
 
-	var flowControlCount int64 = 0
+	var flowControlCount int64
 flowControlLoop:
 	for {
 		// forward to next consumer. Forwarding errors are not fatal so are not propagated to the caller.
