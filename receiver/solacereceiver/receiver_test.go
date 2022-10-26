@@ -196,6 +196,7 @@ func TestReceiverLifecycle(t *testing.T) {
 	dialCalled := make(chan struct{})
 	messagingService.dialFunc = func() error {
 		validateMetric(t, receiver.metrics.views.receiverStatus, receiverStateConnecting)
+		validateMetric(t, receiver.metrics.views.flowControlStatus, flowControlStateClear)
 		close(dialCalled)
 		return nil
 	}
@@ -385,6 +386,8 @@ func TestReceiverFlowControlDelayedRetry(t *testing.T) {
 			case <-receiveMessageComplete:
 				require.Fail(t, "Did not expect receiveMessage to return before delay interval")
 			}
+			// Check that we are currently flow controlled
+			validateMetric(t, receiver.metrics.views.flowControlStatus, flowControlStateControlled)
 			// since we set the next consumer to a noop, this should succeed
 			select {
 			case <-time.After(delay):
@@ -396,6 +399,10 @@ func TestReceiverFlowControlDelayedRetry(t *testing.T) {
 			if tc.validation != nil {
 				tc.validation(t, receiver.metrics)
 			}
+			validateMetric(t, receiver.metrics.views.flowControlRecentRetries, 1)
+			validateMetric(t, receiver.metrics.views.flowControlStatus, flowControlStateClear)
+			validateMetric(t, receiver.metrics.views.flowControlTotal, 1)
+			validateMetric(t, receiver.metrics.views.flowControlSingleSuccess, 1)
 		})
 	}
 }
@@ -444,6 +451,69 @@ func TestReceiverFlowControlDelayedRetryInterrupt(t *testing.T) {
 	case err := <-receiveMessageComplete:
 		assert.ErrorContains(t, err, "delayed retry interrupted by shutdown request")
 	}
+}
+
+func TestReceiverFlowControlDelayedRetryMultipleRetries(t *testing.T) {
+	receiver, messagingService, unmarshaller := newReceiver(t)
+	// we won't wait 10 seconds since we will interrupt well before
+	retryInterval := 2 * time.Millisecond
+	var retryCount int64 = 5
+	receiver.config.Flow.DelayedRetry.Delay = retryInterval
+	var err error
+	var currentRetries int64 = 0
+	// we want to return an error at first, then set the next consumer to a noop consumer
+	receiver.nextConsumer, err = consumer.NewTraces(func(ctx context.Context, ld ptrace.Traces) error {
+		if currentRetries > 0 {
+			validateMetric(t, receiver.metrics.views.flowControlRecentRetries, currentRetries)
+		}
+		currentRetries++
+		if currentRetries == retryCount {
+			receiver.nextConsumer, err = consumer.NewTraces(func(ctx context.Context, ld ptrace.Traces) error {
+				return nil
+			})
+		}
+		require.NoError(t, err)
+		return fmt.Errorf("Some temporary error")
+	})
+	require.NoError(t, err)
+
+	// populate mock messagingService and unmarshaller functions, expecting them each to be called at most once
+	var ackCalled bool
+	messagingService.ackFunc = func(ctx context.Context, msg *inboundMessage) error {
+		assert.False(t, ackCalled)
+		ackCalled = true
+		return nil
+	}
+	messagingService.receiveMessageFunc = func(ctx context.Context) (*inboundMessage, error) {
+		return &inboundMessage{}, nil
+	}
+	unmarshaller.unmarshalFunc = func(msg *inboundMessage) (ptrace.Traces, error) {
+		return ptrace.NewTraces(), nil
+	}
+
+	receiveMessageComplete := make(chan error, 1)
+	go func() {
+		receiveMessageComplete <- receiver.receiveMessage(context.Background(), messagingService)
+	}()
+	select {
+	case <-time.After(retryInterval * time.Duration(retryCount) / 2):
+		// success
+	case <-receiveMessageComplete:
+		require.Fail(t, "Did not expect receiveMessage to return before delay interval")
+	}
+	validateMetric(t, receiver.metrics.views.flowControlStatus, flowControlStateControlled)
+	// since we set the next consumer to a noop, this should succeed
+	select {
+	case <-time.After(2 * retryInterval * time.Duration(retryCount)):
+		require.Fail(t, "receiveMessage did not return after some time")
+	case err := <-receiveMessageComplete:
+		assert.NoError(t, err)
+	}
+	assert.True(t, ackCalled)
+	validateMetric(t, receiver.metrics.views.flowControlRecentRetries, retryCount)
+	validateMetric(t, receiver.metrics.views.flowControlStatus, flowControlStateClear)
+	validateMetric(t, receiver.metrics.views.flowControlTotal, 1)
+	validateMetric(t, receiver.metrics.views.flowControlSingleSuccess, nil)
 }
 
 func newReceiver(t *testing.T) (*solaceTracesReceiver, *mockMessagingService, *mockUnmarshaller) {

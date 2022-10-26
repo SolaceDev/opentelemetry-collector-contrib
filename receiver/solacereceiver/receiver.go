@@ -93,6 +93,7 @@ func newTracesReceiver(config *Config, receiverCreateSettings component.Receiver
 // Start implements component.Receiver::Start
 func (s *solaceTracesReceiver) Start(_ context.Context, _ component.Host) error {
 	s.metrics.recordReceiverStatus(receiverStateStarting)
+	s.metrics.recordFlowControlStatus(flowControlStateClear)
 	var cancelableContext context.Context
 	cancelableContext, s.cancel = context.WithCancel(context.Background())
 
@@ -232,6 +233,7 @@ func (s *solaceTracesReceiver) receiveMessage(ctx context.Context, service messa
 		return nil                            // don't propagate error, but don't continue forwarding traces
 	}
 
+	var flowControlCount int64 = 0
 flowControlLoop:
 	for {
 		// forward to next consumer. Forwarding errors are not fatal so are not propagated to the caller.
@@ -240,6 +242,12 @@ flowControlLoop:
 		if forwardErr != nil {
 			if !consumererror.IsPermanent(forwardErr) {
 				s.settings.Logger.Info("Encountered temporary error while forwarding traces to next receiver, will allow redelivery", zap.Error(forwardErr))
+				// handle flow control metrics
+				if flowControlCount == 0 {
+					s.metrics.recordFlowControlStatus(flowControlStateControlled)
+				}
+				flowControlCount++
+				s.metrics.recordFlowControlRecentRetries(flowControlCount)
 				// Backpressure scenario. For now, we are only delayed retry, eventually we may need to handle this
 				delayTimer := time.NewTimer(s.config.Flow.DelayedRetry.Delay)
 				select {
@@ -255,9 +263,19 @@ flowControlLoop:
 				s.metrics.recordDroppedSpanMessages()
 				break flowControlLoop
 			}
+		} else {
+			// no forward error
+			s.metrics.recordReportedSpans()
+			break flowControlLoop
 		}
-		s.metrics.recordReportedSpans()
-		break flowControlLoop
+	}
+	// Make sure to clear the stats no matter what, unless we were interrupted in which case we should preserve the last state
+	if flowControlCount != 0 {
+		s.metrics.recordFlowControlStatus(flowControlStateClear)
+		s.metrics.recordFlowControlTotal()
+		if flowControlCount == 1 {
+			s.metrics.recordFlowControlSingleSuccess()
+		}
 	}
 	return nil
 }
