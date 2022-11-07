@@ -52,8 +52,8 @@ github.com/DataDog/datadog-agent/pkg/obfuscate v0.41.0-rc.1 h1:Hg8jBxWoaT0haQCVD
 github.com/DataDog/datadog-agent/pkg/obfuscate v0.41.0-rc.1/go.mod h1:DNHeRExTGWQoMgmOgcDtNENOEHN/tYJIicmAUgW1nXk=
 github.com/DataDog/datadog-agent/pkg/otlp/model v0.41.0-rc.1 h1:hnUgVpArnQsN/75Hjz1MmFTzBi/tkJlwpYdo4fDIesI=
 github.com/DataDog/datadog-agent/pkg/otlp/model v0.41.0-rc.1/go.mod h1:jngjh68OtdzeLBJTcmX9UJK0uxMg+wxRjgijak7kUYI=
-github.com/DataDog/datadog-agent/pkg/quantile v0.41.0-rc.1 h1:K6jQoA1QNrroYGSMmnrlmBGiOxjpIVDYdqVPRTLjOIU=
-github.com/DataDog/datadog-agent/pkg/quantile v0.41.0-rc.1/go.mod h1:AIeAmqZcsaM52u6hjtkhGbQ1EiMzgvk1oopy+4utRl4=
+github.com/DataDog/datadog-agent/pkg/quantile v0.41.0-rc.2 h1:dNHpQRM0PzdWOD5+MHF725LVMMgXIkxl8ZJbBrbHxC4=
+github.com/DataDog/datadog-agent/pkg/quantile v0.41.0-rc.2/go.mod h1:AIeAmqZcsaM52u6hjtkhGbQ1EiMzgvk1oopy+4utRl4=
 github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.41.0-rc.1 h1:Zhz5lzPwiL9byukrZe+EI5ITs2+tCwnjUpexME6FGNY=
 github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.41.0-rc.1/go.mod h1:dyOW1OoE1/nZrJx45c4KL1v078cfRtC0DFDMIxNrLDQ=
 github.com/DataDog/datadog-agent/pkg/trace v0.41.0-rc.1 h1:QiTBhPhtiYcLv/mYOXv3GiZWBToCwYuhlZxp5IHoHEI=
