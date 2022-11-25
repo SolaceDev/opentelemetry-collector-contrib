@@ -196,7 +196,7 @@ func TestNewAMQPMessagingServiceFactory(t *testing.T) {
 func TestAMQPDialFailure(t *testing.T) {
 	const expectedAddr = "some-host:1234"
 	var expectedErr = fmt.Errorf("some error")
-	dialFunc = func(addr string, opts *amqp.ConnOptions) (*amqp.Client, error) {
+	dialFunc = func(addr string, opts *amqp.ConnOptions) (*amqp.Conn, error) {
 		defer func() { dialFunc = amqp.Dial }() // reset dialFunc
 		assert.Equal(t, expectedAddr, addr)
 		return nil, expectedErr
@@ -222,7 +222,7 @@ func TestAMQPDialConfigOptionsWithoutTLS(t *testing.T) {
 	const expectedAddr = "some-host:1234"
 	var expectedErr = fmt.Errorf("some error")
 	expectedAuthConnOption := amqp.SASLTypeAnonymous()
-	dialFunc = func(addr string, opts *amqp.ConnOptions) (*amqp.Client, error) {
+	dialFunc = func(addr string, opts *amqp.ConnOptions) (*amqp.Conn, error) {
 		defer func() { dialFunc = amqp.Dial }() // reset dialFunc
 		assert.Equal(t, expectedAddr, addr)
 		testFunctionEquality(t, expectedAuthConnOption, opts.SASLType)
@@ -253,7 +253,7 @@ func TestAMQPDialConfigOptionsWithTLS(t *testing.T) {
 	expectedTLSConnOption := &tls.Config{
 		InsecureSkipVerify: false,
 	}
-	dialFunc = func(addr string, opts *amqp.ConnOptions) (*amqp.Client, error) {
+	dialFunc = func(addr string, opts *amqp.ConnOptions) (*amqp.Conn, error) {
 		defer func() { dialFunc = amqp.Dial }() // reset dialFunc
 		assert.Equal(t, expectedAddr, addr)
 		testFunctionEquality(t, expectedAuthConnOption, opts.SASLType)
@@ -501,9 +501,9 @@ func mockWriteData(conn *connMock, data [][]byte, callbacks ...func(sentData, re
 }
 
 func mockDialFunc(conn *connMock) {
-	dialFunc = func(addr string, opts *amqp.ConnOptions) (*amqp.Client, error) {
+	dialFunc = func(addr string, opts *amqp.ConnOptions) (*amqp.Conn, error) {
 		defer func() { dialFunc = amqp.Dial }() // reset dialFunc
-		return amqp.New(conn, opts)
+		return amqp.NewConn(conn, opts)
 	}
 }
 
@@ -698,7 +698,7 @@ func (c *connMock) SetWriteDeadline(t time.Time) error {
 func assertChannelClosed(t *testing.T, c chan struct{}) {
 	select {
 	case <-c: // success
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(10 * time.Second):
 		t.Error("timed out waiting for dial to be called")
 	}
 }

@@ -100,7 +100,7 @@ type amqpMessagingService struct {
 	logger         *zap.Logger
 
 	// runtime fields
-	client   *amqp.Client
+	client   *amqp.Conn
 	session  *amqp.Session
 	receiver *amqp.Receiver
 }
