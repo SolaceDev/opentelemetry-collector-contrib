@@ -137,6 +137,7 @@ func (m *amqpMessagingService) dial(ctx context.Context) (err error) {
 	m.receiver, err = m.session.NewReceiver(ctx, m.receiverConfig.queue, &amqp.ReceiverOptions{
 		Credit:      m.receiverConfig.maxUnacked,
 		Name:        telemetryLinkName,
+		Batching:    true,
 		BatchMaxAge: m.receiverConfig.batchMaxAge,
 	})
 	if err != nil {
