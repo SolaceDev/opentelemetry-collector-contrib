@@ -12,7 +12,7 @@ require (
 	go.opentelemetry.io/collector/component v0.68.0
 	go.opentelemetry.io/collector/receiver/otlpreceiver v0.68.0
 	golang.org/x/mod v0.7.0
-	golang.org/x/text v0.5.0
+	golang.org/x/text v0.6.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -467,7 +467,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/riakreceiver v0.68.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/saphanareceiver v0.68.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sapmreceiver v0.68.0 // indirect
-	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/signalfxreceiver v0.68.0 // indirect
+	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/signalfxreceiver v0.0.0-00010101000000-000000000000 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/simpleprometheusreceiver v0.68.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/skywalkingreceiver v0.68.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/snmpreceiver v0.68.0 // indirect
