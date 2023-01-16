@@ -626,8 +626,8 @@ go.opentelemetry.io/collector/processor/batchprocessor v0.68.0 h1:DWPFd83KRrLp1z
 go.opentelemetry.io/collector/processor/batchprocessor v0.68.0/go.mod h1:4hGQ8EB2zkEASePuyA84RtQvCDgqSVRDbavqMROv3KY=
 go.opentelemetry.io/collector/receiver/otlpreceiver v0.68.0 h1:E+MEOguE/oXwgcDL9WDE8hd1LOoWKWtHRENmUgfZpNU=
 go.opentelemetry.io/collector/receiver/otlpreceiver v0.68.0/go.mod h1:gWzZ44PCS/RoPlpvWoEIYZDYz3FpCLFdZ6uXTOIV4Dw=
-go.opentelemetry.io/collector/semconv v0.68.0 h1:DUDowH6l4OFlecQg8zyffTmUrhu3N9qwr3wtS9Oy6pE=
-go.opentelemetry.io/collector/semconv v0.68.0/go.mod h1:5o9yhOa+ABt7g2E5JABDxGZ1PQPbtfxrKNbYn+LOTXU=
+go.opentelemetry.io/collector/semconv v0.69.1 h1:XIMh3uPTWBF/9iD6R2wP3kCyw455z2nTwqshFdiDNco=
+go.opentelemetry.io/collector/semconv v0.69.1/go.mod h1:5o9yhOa+ABt7g2E5JABDxGZ1PQPbtfxrKNbYn+LOTXU=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.37.0 h1:+uFejS4DCfNH6d3xODVIGsdhzgzhh45p9gpbHQMbdZI=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.37.0/go.mod h1:HSmzQvagH8pS2/xrK7ScWsk0vAMtRTGbMFgInXCi8Tc=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.37.0 h1:yt2NKzK7Vyo6h0+X8BA4FpreZQTlVEIarnsBP/H5mzs=
