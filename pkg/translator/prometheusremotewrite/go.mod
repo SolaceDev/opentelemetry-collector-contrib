@@ -10,7 +10,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/collector/consumer v0.68.0
 	go.opentelemetry.io/collector/pdata v1.0.0-rc2
-	go.opentelemetry.io/collector/semconv v0.68.0
+	go.opentelemetry.io/collector/semconv v0.69.1
 	go.uber.org/multierr v1.9.0
 )
 
