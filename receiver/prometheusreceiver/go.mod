@@ -12,14 +12,14 @@ require (
 	github.com/prometheus/common v0.39.0
 	github.com/prometheus/prometheus v0.40.7
 	github.com/stretchr/testify v1.8.1
-	go.opentelemetry.io/collector v0.68.0
-	go.opentelemetry.io/collector/component v0.68.0
-	go.opentelemetry.io/collector/confmap v0.68.0
-	go.opentelemetry.io/collector/consumer v0.68.0
-	go.opentelemetry.io/collector/featuregate v0.68.0
-	go.opentelemetry.io/collector/pdata v1.0.0-rc2
+	go.opentelemetry.io/collector v0.69.1
+	go.opentelemetry.io/collector/component v0.69.1
+	go.opentelemetry.io/collector/confmap v0.69.1
+	go.opentelemetry.io/collector/consumer v0.69.1
+	go.opentelemetry.io/collector/featuregate v0.69.1
+	go.opentelemetry.io/collector/pdata v1.0.0-rc3
 	go.opentelemetry.io/collector/processor/batchprocessor v0.68.0
-	go.opentelemetry.io/collector/semconv v0.68.0
+	go.opentelemetry.io/collector/semconv v0.69.1
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.24.0
 	google.golang.org/protobuf v1.28.1
@@ -135,9 +135,9 @@ require (
 	github.com/prometheus/common/sigv4 v0.1.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
-	github.com/rs/cors v1.8.2 // indirect
+	github.com/rs/cors v1.8.3 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.9 // indirect
-	github.com/shirou/gopsutil/v3 v3.22.10 // indirect
+	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
