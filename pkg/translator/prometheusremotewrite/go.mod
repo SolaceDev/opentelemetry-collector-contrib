@@ -8,8 +8,8 @@ require (
 	github.com/prometheus/common v0.39.0
 	github.com/prometheus/prometheus v0.40.7
 	github.com/stretchr/testify v1.8.1
-	go.opentelemetry.io/collector/consumer v0.68.0
-	go.opentelemetry.io/collector/pdata v1.0.0-rc2
+	go.opentelemetry.io/collector/consumer v0.69.1
+	go.opentelemetry.io/collector/pdata v1.0.0-rc3
 	go.opentelemetry.io/collector/semconv v0.68.0
 	go.uber.org/multierr v1.9.0
 )
