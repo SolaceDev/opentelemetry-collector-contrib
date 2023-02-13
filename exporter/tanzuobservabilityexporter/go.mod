@@ -9,7 +9,7 @@ require (
 	github.com/wavefronthq/wavefront-sdk-go v0.11.0
 	go.opentelemetry.io/collector v0.70.0
 	go.opentelemetry.io/collector/component v0.70.0
-	go.opentelemetry.io/collector/pdata v1.0.0-rc4
+	go.opentelemetry.io/collector/pdata v1.0.0-rc5
 	go.opentelemetry.io/collector/semconv v0.70.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.9.0
