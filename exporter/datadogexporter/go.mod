@@ -4,12 +4,12 @@ go 1.19
 
 require (
 	github.com/DataDog/agent-payload/v5 v5.0.84
-	github.com/DataDog/datadog-agent/pkg/trace v0.45.0-rc.4
+	github.com/DataDog/datadog-agent/pkg/trace v0.45.0
 	github.com/DataDog/datadog-api-client-go/v2 v2.12.0
 	github.com/DataDog/gohai v0.0.0-20220718130825-1776f9beb9cc
-	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes v0.2.1
-	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics v0.2.1
-	github.com/DataDog/opentelemetry-mapping-go/pkg/quantile v0.2.1
+	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes v0.5.0
+	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/metrics v0.5.0
+	github.com/DataDog/opentelemetry-mapping-go/pkg/quantile v0.5.0
 	github.com/DataDog/sketches-go v1.4.2
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.13.1
 	github.com/aws/aws-sdk-go v1.44.267
@@ -23,7 +23,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor v0.78.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver v0.78.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver v0.78.0
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	go.opentelemetry.io/collector v0.78.2
 	go.opentelemetry.io/collector/component v0.78.2
 	go.opentelemetry.io/collector/confmap v0.78.2
@@ -34,7 +34,7 @@ require (
 	go.opentelemetry.io/collector/processor/batchprocessor v0.78.2
 	go.opentelemetry.io/collector/receiver v0.78.2
 	go.opentelemetry.io/collector/receiver/otlpreceiver v0.78.2
-	go.opentelemetry.io/collector/semconv v0.78.2
+	go.opentelemetry.io/collector/semconv v0.79.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
 	google.golang.org/protobuf v1.30.0
@@ -48,12 +48,12 @@ require (
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2 // indirect
-	github.com/DataDog/datadog-agent/pkg/obfuscate v0.45.0-rc.4 // indirect
-	github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.45.0-rc.4 // indirect
-	github.com/DataDog/datadog-agent/pkg/util/cgroups v0.45.0-rc.4 // indirect
-	github.com/DataDog/datadog-agent/pkg/util/log v0.45.0-rc.4 // indirect
-	github.com/DataDog/datadog-agent/pkg/util/pointer v0.45.0-rc.4 // indirect
-	github.com/DataDog/datadog-agent/pkg/util/scrubber v0.45.0-rc.4 // indirect
+	github.com/DataDog/datadog-agent/pkg/obfuscate v0.45.0 // indirect
+	github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.45.0 // indirect
+	github.com/DataDog/datadog-agent/pkg/util/cgroups v0.45.0 // indirect
+	github.com/DataDog/datadog-agent/pkg/util/log v0.45.0 // indirect
+	github.com/DataDog/datadog-agent/pkg/util/pointer v0.45.0 // indirect
+	github.com/DataDog/datadog-agent/pkg/util/scrubber v0.45.0 // indirect
 	github.com/DataDog/datadog-go/v5 v5.1.1 // indirect
 	github.com/DataDog/go-tuf v0.3.0--fix-localmeta-fork // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
@@ -168,7 +168,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.15.1 // indirect
 	go.opentelemetry.io/otel/sdk/metric v0.38.1 // indirect
 	go.opentelemetry.io/otel/trace v1.15.1 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/goleak v1.1.12 // indirect
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
 	golang.org/x/mod v0.10.0 // indirect
