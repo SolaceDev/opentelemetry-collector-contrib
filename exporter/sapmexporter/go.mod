@@ -16,7 +16,7 @@ require (
 	go.opentelemetry.io/collector/consumer v0.78.2
 	go.opentelemetry.io/collector/exporter v0.78.2
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0012
-	go.uber.org/zap v1.24.0
+	go.uber.org/zap v1.25.0
 )
 
 require (
