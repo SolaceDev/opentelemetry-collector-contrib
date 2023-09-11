@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ contains(github.event.pull_request.labels.*.name, 'dependencies') }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           # currently the fork of this repo is from a personal fork
           # because of an issue when creating multiple forks using forking renovate
