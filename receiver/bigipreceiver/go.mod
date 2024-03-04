@@ -6,7 +6,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.78.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.78.0
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/collector v0.78.2
 	go.opentelemetry.io/collector/component v0.78.2
 	go.opentelemetry.io/collector/confmap v0.78.2
@@ -59,7 +59,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rs/cors v1.9.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/testcontainers/testcontainers-go v0.20.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/collector/exporter v0.78.2 // indirect
