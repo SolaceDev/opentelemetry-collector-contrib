@@ -4,12 +4,12 @@ go 1.19
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
-	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.13.1
+	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.22.0
 	github.com/aws/aws-sdk-go v1.44.267
 	github.com/hashicorp/consul/api v1.20.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/ecsutil v0.78.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders v0.78.0
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	go.opentelemetry.io/collector v0.78.2
 	go.opentelemetry.io/collector/component v0.78.2
 	go.opentelemetry.io/collector/confmap v0.78.2
@@ -23,7 +23,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.19.0 // indirect
+	cloud.google.com/go/compute v1.23.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Showmax/go-fqdn v1.0.0 // indirect
@@ -92,7 +92,7 @@ require (
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc // indirect
 	google.golang.org/grpc v1.55.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
