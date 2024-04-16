@@ -61,6 +61,9 @@ func extractPortFromEndpoint(endpoint string) (int, error) {
 	return int(port), nil
 }
 
+var receiverLock sync.Mutex
+var receivers = map[*Config]*sfxReceiver{}
+
 // createMetricsReceiver creates a metrics receiver based on provided config.
 func createMetricsReceiver(
 	_ context.Context,
@@ -112,6 +115,3 @@ func createLogsReceiver(
 
 	return r, nil
 }
-
-var receiverLock sync.Mutex
-var receivers = map[*Config]*sfxReceiver{}

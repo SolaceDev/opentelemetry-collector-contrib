@@ -5,6 +5,7 @@ package solacereceiver // import "github.com/open-telemetry/opentelemetry-collec
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -28,8 +29,12 @@ func NewFactory() receiver.Factory {
 		metadata.Type,
 		createDefaultConfig,
 		receiver.WithTraces(createTracesReceiver, metadata.TracesStability),
+		receiver.WithLogs(createLogsReceiver, component.StabilityLevelAlpha),
 	)
 }
+
+var receivers = make(map[*Config]*solaceReceiver)
+var receiversLock = new(sync.Mutex)
 
 // createDefaultConfig creates the default configuration for receiver.
 func createDefaultConfig() component.Config {
@@ -60,6 +65,42 @@ func createTracesReceiver(
 	if !ok {
 		return nil, component.ErrDataTypeIsNotSupported
 	}
+
+	receiversLock.Lock()
+	defer receiversLock.Unlock()
+	r := receivers[cfg]
+	if r == nil {
+		var err error
+		r, err = newReceiver(cfg, params)
+		if err != nil {
+			return nil, err
+		}
+		receivers[cfg] = r
+	}
+	r.setTraceConsumer(nextConsumer)
 	// pass cfg, params and next consumer through
-	return newTracesReceiver(cfg, params, nextConsumer)
+	return r, nil
+}
+
+func createLogsReceiver(_ context.Context, params receiver.CreateSettings,
+	receiverConfig component.Config, nextConsumer consumer.Logs) (receiver.Logs, error) {
+	cfg, ok := receiverConfig.(*Config)
+	if !ok {
+		return nil, component.ErrDataTypeIsNotSupported
+	}
+
+	receiversLock.Lock()
+	defer receiversLock.Unlock()
+	r := receivers[cfg]
+	if r == nil {
+		var err error
+		r, err = newReceiver(cfg, params)
+		if err != nil {
+			return nil, err
+		}
+		receivers[cfg] = r
+	}
+	r.setLogsConsumer(nextConsumer)
+	// pass cfg, params and next consumer through
+	return r, nil
 }

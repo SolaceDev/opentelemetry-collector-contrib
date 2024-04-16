@@ -12,6 +12,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const traceTopicPrefix = "_telemetry/broker/trace/"
+
 // tracesUnmarshaller deserializes the message body.
 type tracesUnmarshaller interface {
 	// unmarshal the amqp-message into traces.
@@ -55,42 +57,30 @@ var (
 // For now, only receive v1 messages are used.
 func (u *solaceTracesUnmarshaller) unmarshal(message *inboundMessage) (ptrace.Traces, error) {
 	const (
-		topicPrefix       = "_telemetry/"
-		receiveSpanPrefix = "broker/trace/receive/"
-		egressSpanPrefix  = "broker/trace/egress/"
+		receiveSpanPrefix = "receive/"
+		egressSpanPrefix  = "egress/"
 		v1Suffix          = "v1"
 	)
-	if message.Properties == nil || message.Properties.To == nil {
-		// no topic
-		u.logger.Error("Received message with no topic")
-		return ptrace.Traces{}, errUnknownTopic
-	}
 	var topic string = *message.Properties.To
-	// Multiplex the topic string. For now we only have a single type handled
-	if strings.HasPrefix(topic, topicPrefix) {
-		// we are a telemetry strng
-		if strings.HasPrefix(topic[len(topicPrefix):], receiveSpanPrefix) {
-			// we are handling a receive span, validate the version is v1
-			if strings.HasSuffix(topic, v1Suffix) {
-				return u.receiveUnmarshallerV1.unmarshal(message)
-			}
-			// otherwise we are an unknown version
-			u.logger.Error("Received message with unsupported receive span version, an upgrade is required", zap.String("topic", *message.Properties.To))
-		} else { // make lint happy, wants two boolean expressions to be written as a switch?!
-			if strings.HasPrefix(topic[len(topicPrefix):], egressSpanPrefix) {
-				if strings.HasSuffix(topic, v1Suffix) {
-					return u.egressUnmarshallerV1.unmarshal(message)
-				}
-			} else {
-				u.logger.Error("Received message with unsupported topic, an upgrade is required", zap.String("topic", *message.Properties.To))
-			}
+	// we are a telemetry strng
+	if strings.HasPrefix(topic[len(traceTopicPrefix):], receiveSpanPrefix) {
+		// we are handling a receive span, validate the version is v1
+		if strings.HasSuffix(topic, v1Suffix) {
+			return u.receiveUnmarshallerV1.unmarshal(message)
 		}
-		// if we don't know the type, we must upgrade
-		return ptrace.Traces{}, errUpgradeRequired
+		// otherwise we are an unknown version
+		u.logger.Error("Received message with unsupported receive span version, an upgrade is required", zap.String("topic", *message.Properties.To))
+	} else { // make lint happy, wants two boolean expressions to be written as a switch?!
+		if strings.HasPrefix(topic[len(traceTopicPrefix):], egressSpanPrefix) {
+			if strings.HasSuffix(topic, v1Suffix) {
+				return u.egressUnmarshallerV1.unmarshal(message)
+			}
+		} else {
+			u.logger.Error("Received message with unsupported topic, an upgrade is required", zap.String("topic", *message.Properties.To))
+		}
 	}
-	// unknown topic, do not require an upgrade
-	u.logger.Error("Received message with unknown topic", zap.String("topic", *message.Properties.To))
-	return ptrace.Traces{}, errUnknownTopic
+	// if we don't know the type, we must upgrade
+	return ptrace.Traces{}, errUpgradeRequired
 }
 
 // common helper functions used by all unmarshallers
