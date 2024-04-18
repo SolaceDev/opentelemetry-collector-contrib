@@ -5,6 +5,7 @@ status:
   class: receiver
   stability:
     beta: [traces]
+    alpha: [logs]
   distributions: [contrib]
   codeowners:
     active: [djaglowski, mcardy]

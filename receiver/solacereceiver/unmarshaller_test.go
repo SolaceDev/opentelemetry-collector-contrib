@@ -25,7 +25,6 @@ func TestSolaceMessageUnmarshallerUnmarshal(t *testing.T) {
 	validEgressTopicVersion := "_telemetry/broker/trace/egress/v1"
 	invalidReceiveTopicVersion := "_telemetry/broker/trace/receive/v2"
 	invalidTelemetryTopic := "_telemetry/broker/trace/somethingNew"
-	invalidTopicString := "some unknown topic string that won't be valid"
 
 	tests := []struct {
 		name    string
@@ -33,15 +32,6 @@ func TestSolaceMessageUnmarshallerUnmarshal(t *testing.T) {
 		want    *ptrace.Traces
 		err     error
 	}{
-		{
-			name: "Unknown Topic Stirng",
-			message: &inboundMessage{
-				Properties: &amqp.MessageProperties{
-					To: &invalidTopicString,
-				},
-			},
-			err: errUnknownTopic,
-		},
 		{
 			name: "Bad Topic Version",
 			message: &inboundMessage{
@@ -59,22 +49,6 @@ func TestSolaceMessageUnmarshallerUnmarshal(t *testing.T) {
 				},
 			},
 			err: errUpgradeRequired,
-		},
-		{
-			name: "No Message Properties",
-			message: &inboundMessage{
-				Properties: nil,
-			},
-			err: errUnknownTopic,
-		},
-		{
-			name: "No Topic String",
-			message: &inboundMessage{
-				Properties: &amqp.MessageProperties{
-					To: nil,
-				},
-			},
-			err: errUnknownTopic,
 		},
 		{
 			name: "Empty Message Data with Receive topic",

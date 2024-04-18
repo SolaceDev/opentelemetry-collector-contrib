@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,27 +20,32 @@ import (
 )
 
 // solaceTracesReceiver uses azure AMQP to consume and handle telemetry data from SOlace. Implements receiver.Traces
-type solaceTracesReceiver struct {
+type solaceReceiver struct {
 	// config is the receiver.Config instance used to build the receiver
 	config *Config
 
-	nextConsumer consumer.Traces
-	settings     receiver.CreateSettings
-	metrics      *opencensusMetrics
-	unmarshaller tracesUnmarshaller
+	traceConsumer consumer.Traces
+	logsConsumer  consumer.Logs
+
+	settings           receiver.CreateSettings
+	metrics            *opencensusMetrics
+	tracesUnmarshaller tracesUnmarshaller
+	logsUnmarshaller   logsUnmarshaller
 	// cancel is the function that will cancel the context associated with the main worker loop
 	cancel            context.CancelFunc
 	shutdownWaitGroup *sync.WaitGroup
 	// newFactory is the constructor to use to build new messagingServiceFactory instances
 	factory messagingServiceFactory
-	// terminating is used to indicate that the receiver is terminating
-	terminating *atomic.Bool
+	// started is used to indicate that the receiver is started
+	started *atomic.Bool
+	// terminated is used to indicate that the receiver is terminated
+	terminated *atomic.Bool
 	// retryTimeout is the timeout between connection attempts
 	retryTimeout time.Duration
 }
 
 // newTracesReceiver creates a new solaceTraceReceiver as a receiver.Traces
-func newTracesReceiver(config *Config, set receiver.CreateSettings, nextConsumer consumer.Traces) (receiver.Traces, error) {
+func newReceiver(config *Config, set receiver.CreateSettings) (*solaceReceiver, error) {
 
 	factory, err := newAMQPMessagingServiceFactory(config, set.Logger)
 	if err != nil {
@@ -53,23 +59,34 @@ func newTracesReceiver(config *Config, set receiver.CreateSettings, nextConsumer
 		return nil, err
 	}
 
-	unmarshaller := newTracesUnmarshaller(set.Logger, metrics)
-
-	return &solaceTracesReceiver{
-		config:            config,
-		nextConsumer:      nextConsumer,
-		settings:          set,
-		metrics:           metrics,
-		unmarshaller:      unmarshaller,
-		shutdownWaitGroup: &sync.WaitGroup{},
-		factory:           factory,
-		retryTimeout:      1 * time.Second,
-		terminating:       &atomic.Bool{},
+	return &solaceReceiver{
+		config:             config,
+		settings:           set,
+		metrics:            metrics,
+		tracesUnmarshaller: newTracesUnmarshaller(set.Logger, metrics),
+		logsUnmarshaller:   newLogsUnmarshaller(set.Logger, metrics),
+		shutdownWaitGroup:  &sync.WaitGroup{},
+		factory:            factory,
+		retryTimeout:       1 * time.Second,
+		started:            &atomic.Bool{},
+		terminated:         &atomic.Bool{},
 	}, nil
 }
 
+func (s *solaceReceiver) setTraceConsumer(consumer consumer.Traces) {
+	s.traceConsumer = consumer
+}
+
+func (s *solaceReceiver) setLogsConsumer(consumer consumer.Logs) {
+	s.logsConsumer = consumer
+}
+
 // Start implements component.Receiver::Start
-func (s *solaceTracesReceiver) Start(_ context.Context, _ component.Host) error {
+func (s *solaceReceiver) Start(_ context.Context, _ component.Host) error {
+	if !s.started.CompareAndSwap(false, true) {
+		s.settings.Logger.Info("Receiver already started")
+		return nil
+	}
 	s.metrics.recordReceiverStatus(receiverStateStarting)
 	s.metrics.recordFlowControlStatus(flowControlStateClear)
 	var cancelableContext context.Context
@@ -84,11 +101,14 @@ func (s *solaceTracesReceiver) Start(_ context.Context, _ component.Host) error 
 }
 
 // Shutdown implements component.Receiver::Shutdown
-func (s *solaceTracesReceiver) Shutdown(_ context.Context) error {
+func (s *solaceReceiver) Shutdown(_ context.Context) error {
 	if s.cancel == nil {
 		return nil
 	}
-	s.terminating.Store(true)
+	if !s.terminated.CompareAndSwap(false, true) {
+		s.settings.Logger.Info("Receiver already shutting down")
+		return nil
+	}
 	s.metrics.recordReceiverStatus(receiverStateTerminating)
 	s.settings.Logger.Info("Shutdown waiting for all components to complete")
 	s.cancel() // cancels the context passed to the reconnection loop
@@ -98,7 +118,7 @@ func (s *solaceTracesReceiver) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (s *solaceTracesReceiver) connectAndReceive(ctx context.Context) {
+func (s *solaceReceiver) connectAndReceive(ctx context.Context) {
 	// indicate we are started in the reconnection loop
 	s.shutdownWaitGroup.Add(1)
 	defer func() {
@@ -160,14 +180,14 @@ reconnectionLoop:
 // This does not fully prevent the state transitions terminating->(state)->terminated but
 // is a best effort without mutex protection and additional state tracking, and in reality if
 // this state transition were to happen, it would be short lived.
-func (s *solaceTracesReceiver) recordConnectionState(state receiverState) {
-	if !s.terminating.Load() {
+func (s *solaceReceiver) recordConnectionState(state receiverState) {
+	if !s.terminated.Load() {
 		s.metrics.recordReceiverStatus(state)
 	}
 }
 
 // receiveMessages will continuously receive, unmarshal and propagate messages
-func (s *solaceTracesReceiver) receiveMessages(ctx context.Context, service messagingService) error {
+func (s *solaceReceiver) receiveMessages(ctx context.Context, service messagingService) error {
 	for {
 		select { // ctx.Done will be closed when we should terminate
 		case <-ctx.Done():
@@ -184,14 +204,14 @@ func (s *solaceTracesReceiver) receiveMessages(ctx context.Context, service mess
 
 // receiveMessage is the heart of the receiver's control flow. It will receive messages, unmarshal the message and forward the trace.
 // Will return an error if a fatal error occurs. It is expected that any error returned will cause a connection close.
-func (s *solaceTracesReceiver) receiveMessage(ctx context.Context, service messagingService) (err error) {
+func (s *solaceReceiver) receiveMessage(ctx context.Context, service messagingService) (err error) {
 	msg, err := service.receiveMessage(ctx)
 	if err != nil {
 		s.settings.Logger.Warn("Failed to receive message from messaging service", zap.Error(err))
 		return err // propagate any receive message error up to caller
 	}
 	// only set the disposition action after we have received a message successfully
-	disposition := service.accept
+	var disposition (func(context.Context, *inboundMessage) error) = nil
 	defer func() { // on return of receiveMessage, we want to either ack or nack the message
 		if disposition != nil {
 			if actionErr := disposition(ctx, msg); err == nil && actionErr != nil {
@@ -199,27 +219,57 @@ func (s *solaceTracesReceiver) receiveMessage(ctx context.Context, service messa
 			}
 		}
 	}()
-	// message received successfully
+
+	if msg.Properties == nil || msg.Properties.To == nil {
+		// no topic
+		s.settings.Logger.Error("Received message with no topic")
+		s.metrics.recordFatalUnmarshallingError()
+		s.metrics.recordDroppedSpanMessages()
+		disposition = service.accept
+		return nil
+	}
+	var topic string = *msg.Properties.To
+
+	var unmarshalErr error
+	if strings.HasPrefix(topic, traceTopicPrefix) {
+		disposition, unmarshalErr = s.processTraceMessage(ctx, service, msg)
+	} else if strings.HasPrefix(topic, logTopicPrefix) {
+		disposition, unmarshalErr = s.processLogMessage(ctx, service, msg)
+	} else {
+		s.settings.Logger.Error("Received message with unknown topic", zap.String("topic", topic))
+		s.metrics.recordFatalUnmarshallingError()
+		s.metrics.recordDroppedSpanMessages()
+		disposition = service.accept
+	}
+	return unmarshalErr
+}
+
+func (s *solaceReceiver) processTraceMessage(ctx context.Context, service messagingService, msg *inboundMessage) (disposition func(context.Context, *inboundMessage) error, err error) {
 	s.metrics.recordReceivedSpanMessages()
+	if s.traceConsumer == nil {
+		s.settings.Logger.Error("Consumed trace message but no trace consumer available")
+		s.metrics.recordFatalUnmarshallingError()
+		s.metrics.recordDroppedSpanMessages()
+		return service.accept, nil
+	}
 	// unmarshal the message. unmarshalling errors are not fatal unless the version is unknown
-	traces, unmarshalErr := s.unmarshaller.unmarshal(msg)
+	traces, unmarshalErr := s.tracesUnmarshaller.unmarshal(msg)
 	if unmarshalErr != nil {
 		s.settings.Logger.Error("Encountered error while unmarshalling message", zap.Error(unmarshalErr))
 		s.metrics.recordFatalUnmarshallingError()
 		if errors.Is(unmarshalErr, errUpgradeRequired) {
-			disposition = service.failed // if we don't know the version, reject the trace message since we will disable the receiver
-			return unmarshalErr
+			return service.failed, unmarshalErr
 		}
 		s.metrics.recordDroppedSpanMessages() // if the error is some other unmarshalling error, we will ack the message and drop the content
-		return nil                            // don't propagate error, but don't continue forwarding traces
+		return service.accept, nil            // don't propagate error, but don't continue forwarding traces
 	}
 
 	var flowControlCount int64
-flowControlLoop:
+traceFlowControlLoop:
 	for {
 		// forward to next consumer. Forwarding errors are not fatal so are not propagated to the caller.
 		// Temporary consumer errors will lead to redelivered messages, permanent will be accepted
-		forwardErr := s.nextConsumer.ConsumeTraces(ctx, traces)
+		forwardErr := s.traceConsumer.ConsumeTraces(ctx, traces)
 		if forwardErr != nil {
 			if !consumererror.IsPermanent(forwardErr) {
 				s.settings.Logger.Info("Encountered temporary error while forwarding traces to next receiver, will allow redelivery", zap.Error(forwardErr))
@@ -233,21 +283,20 @@ flowControlLoop:
 				delayTimer := time.NewTimer(s.config.Flow.DelayedRetry.Delay)
 				select {
 				case <-delayTimer.C:
-					continue flowControlLoop
+					continue traceFlowControlLoop
 				case <-ctx.Done():
 					s.settings.Logger.Info("Context was cancelled while attempting redelivery, exiting")
-					disposition = nil // do not make any network requests, we are shutting down
-					return fmt.Errorf("delayed retry interrupted by shutdown request")
+					return nil, fmt.Errorf("delayed retry interrupted by shutdown request") // do not make any network requests, we are shutting down
 				}
 			} else { // error is permanent, we want to accept the message and increment the number of dropped messages
 				s.settings.Logger.Warn("Encountered permanent error while forwarding traces to next receiver, will swallow trace", zap.Error(forwardErr))
 				s.metrics.recordDroppedSpanMessages()
-				break flowControlLoop
+				break traceFlowControlLoop
 			}
 		} else {
 			// no forward error
 			s.metrics.recordReportedSpans(int64(traces.SpanCount()))
-			break flowControlLoop
+			break traceFlowControlLoop
 		}
 	}
 	// Make sure to clear the stats no matter what, unless we were interrupted in which case we should preserve the last state
@@ -258,7 +307,73 @@ flowControlLoop:
 			s.metrics.recordFlowControlSingleSuccess()
 		}
 	}
-	return nil
+	return service.accept, nil
+}
+
+func (s *solaceReceiver) processLogMessage(ctx context.Context, service messagingService, msg *inboundMessage) (disposition func(context.Context, *inboundMessage) error, err error) {
+	s.metrics.recordReceivedLogMessages()
+	if s.logsConsumer == nil {
+		s.settings.Logger.Error("Consumed trace message but no trace consumer available")
+		s.metrics.recordFatalUnmarshallingError()
+		s.metrics.recordDroppedLogMessage()
+		return service.accept, nil
+	}
+	// unmarshal the message. unmarshalling errors are not fatal unless the version is unknown
+	logs, unmarshalErr := s.logsUnmarshaller.unmarshal(msg)
+	if unmarshalErr != nil {
+		s.settings.Logger.Error("Encountered error while unmarshalling message", zap.Error(unmarshalErr))
+		s.metrics.recordFatalUnmarshallingError()
+		if errors.Is(unmarshalErr, errUpgradeRequired) {
+			return service.failed, unmarshalErr // if we don't know the version, reject the log message since we will disable the receiver
+		}
+		s.metrics.recordDroppedLogMessage() // if the error is some other unmarshalling error, we will ack the message and drop the content
+		return service.accept, nil          // don't propagate error, but don't continue forwarding logs
+	}
+
+	var flowControlCount int64
+logsFlowControlLoop:
+	for {
+		// forward to next consumer. Forwarding errors are not fatal so are not propagated to the caller.
+		// Temporary consumer errors will lead to redelivered messages, permanent will be accepted
+		forwardErr := s.logsConsumer.ConsumeLogs(ctx, logs)
+		if forwardErr != nil {
+			if !consumererror.IsPermanent(forwardErr) {
+				s.settings.Logger.Info("Encountered temporary error while forwarding logs to next component, will allow redelivery", zap.Error(forwardErr))
+				// handle flow control metrics
+				if flowControlCount == 0 {
+					s.metrics.recordFlowControlStatus(flowControlStateControlled)
+				}
+				flowControlCount++
+				s.metrics.recordFlowControlRecentRetries(flowControlCount)
+				// Backpressure scenario. For now, we are only delayed retry, eventually we may need to handle this
+				delayTimer := time.NewTimer(s.config.Flow.DelayedRetry.Delay)
+				select {
+				case <-delayTimer.C:
+					continue logsFlowControlLoop
+				case <-ctx.Done():
+					s.settings.Logger.Info("Context was cancelled while attempting redelivery, exiting")
+					return nil, fmt.Errorf("delayed retry interrupted by shutdown request") // do not make any network requests, we are shutting down
+				}
+			} else { // error is permanent, we want to accept the message and increment the number of dropped messages
+				s.settings.Logger.Warn("Encountered permanent error while forwarding logs to next component, will swallow trace", zap.Error(forwardErr))
+				s.metrics.recordDroppedSpanMessages()
+				break logsFlowControlLoop
+			}
+		} else {
+			// no forward error
+			s.metrics.recordReportedLogs(1)
+			break logsFlowControlLoop
+		}
+	}
+	// Make sure to clear the stats no matter what, unless we were interrupted in which case we should preserve the last state
+	if flowControlCount != 0 {
+		s.metrics.recordFlowControlStatus(flowControlStateClear)
+		s.metrics.recordFlowControlTotal()
+		if flowControlCount == 1 {
+			s.metrics.recordFlowControlSingleSuccess()
+		}
+	}
+	return service.accept, nil
 }
 
 func sleep(ctx context.Context, d time.Duration) {

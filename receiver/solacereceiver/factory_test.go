@@ -39,7 +39,7 @@ func TestCreateTracesReceiver(t *testing.T) {
 		consumertest.NewNop(),
 	)
 	assert.NoError(t, err)
-	castedReceiver, ok := receiver.(*solaceTracesReceiver)
+	castedReceiver, ok := receiver.(*solaceReceiver)
 	assert.True(t, ok)
 	assert.Equal(t, castedReceiver.config, cfg)
 }

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/go-amqp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/consumer"
@@ -29,8 +30,8 @@ import (
 func TestReceiveMessage(t *testing.T) {
 	someError := errors.New("some error")
 
-	validateMetrics := func(receivedMsgVal, droppedMsgVal, fatalUnmarshalling, reportedSpan any) func(t *testing.T, receiver *solaceTracesReceiver) {
-		return func(t *testing.T, receiver *solaceTracesReceiver) {
+	validateMetrics := func(receivedMsgVal, droppedMsgVal, fatalUnmarshalling, reportedSpan any) func(t *testing.T, receiver *solaceReceiver) {
+		return func(t *testing.T, receiver *solaceReceiver) {
 			validateReceiverMetrics(t, receiver, receivedMsgVal, droppedMsgVal, fatalUnmarshalling, reportedSpan)
 		}
 	}
@@ -45,7 +46,7 @@ func TestReceiveMessage(t *testing.T) {
 		// expected error from receiveMessage
 		expectedErr error
 		// validate constraints after the fact
-		validation func(t *testing.T, receiver *solaceTracesReceiver)
+		validation func(t *testing.T, receiver *solaceReceiver)
 		// traces provided by the trace function
 		traces ptrace.Traces
 	}{
@@ -93,13 +94,18 @@ func TestReceiveMessage(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			receiver, messagingService, unmarshaller := newReceiver(t)
+			receiver, messagingService, unmarshaller := newTestReceiver(t)
 			if testCase.nextConsumer != nil {
-				receiver.nextConsumer = testCase.nextConsumer
+				receiver.traceConsumer = testCase.nextConsumer
 			}
 
-			msg := &inboundMessage{}
-
+			validReceiveTopicVersion := "_telemetry/broker/trace/receive/v1"
+			msg := &inboundMessage{
+				Data: [][]byte{{}},
+				Properties: &amqp.MessageProperties{
+					To: &validReceiveTopicVersion,
+				},
+			}
 			// populate mock messagingService and unmarshaller functions, expecting them each to be called at most once
 			var receiveMessagesCalled, ackCalled, nackCalled, unmarshalCalled bool
 			messagingService.receiveMessageFunc = func(context.Context) (*inboundMessage, error) {
@@ -156,10 +162,16 @@ func TestReceiveMessage(t *testing.T) {
 
 // receiveMessages ctx done return
 func TestReceiveMessagesTerminateWithCtxDone(t *testing.T) {
-	receiver, messagingService, unmarshaller := newReceiver(t)
+	receiver, messagingService, unmarshaller := newTestReceiver(t)
 	receiveMessagesCalled := false
 	ctx, cancel := context.WithCancel(context.Background())
-	msg := &inboundMessage{}
+	validReceiveTopicVersion := "_telemetry/broker/trace/receive/v1"
+	msg := &inboundMessage{
+		Data: [][]byte{{}},
+		Properties: &amqp.MessageProperties{
+			To: &validReceiveTopicVersion,
+		},
+	}
 	trace := newTestTracesWithSpans(1)
 	messagingService.receiveMessageFunc = func(context.Context) (*inboundMessage, error) {
 		assert.False(t, receiveMessagesCalled)
@@ -188,7 +200,7 @@ func TestReceiveMessagesTerminateWithCtxDone(t *testing.T) {
 }
 
 func TestReceiverLifecycle(t *testing.T) {
-	receiver, messagingService, _ := newReceiver(t)
+	receiver, messagingService, _ := newTestReceiver(t)
 	dialCalled := make(chan struct{})
 	messagingService.dialFunc = func(context.Context) error {
 		validateMetric(t, receiver.metrics.views.receiverStatus, receiverStateConnecting)
@@ -222,7 +234,7 @@ func TestReceiverLifecycle(t *testing.T) {
 }
 
 func TestReceiverDialFailureContinue(t *testing.T) {
-	receiver, msgService, _ := newReceiver(t)
+	receiver, msgService, _ := newTestReceiver(t)
 	dialErr := errors.New("Some dial error")
 	const expectedAttempts = 3 // the number of attempts to perform prior to resolving
 	dialCalled := 0
@@ -275,7 +287,7 @@ func TestReceiverDialFailureContinue(t *testing.T) {
 }
 
 func TestReceiverUnmarshalVersionFailureExpectingDisable(t *testing.T) {
-	receiver, msgService, unmarshaller := newReceiver(t)
+	receiver, msgService, unmarshaller := newTestReceiver(t)
 	dialDone := make(chan struct{})
 	nackCalled := make(chan struct{})
 	closeDone := make(chan struct{})
@@ -297,7 +309,13 @@ func TestReceiverUnmarshalVersionFailureExpectingDisable(t *testing.T) {
 			t.Error("did not expect receiveMessage to be called again")
 			return nil, nil
 		}
-		return nil, nil
+		validReceiveTopicVersion := "_telemetry/broker/trace/receive/v1"
+		return &inboundMessage{
+			Data: [][]byte{{}},
+			Properties: &amqp.MessageProperties{
+				To: &validReceiveTopicVersion,
+			},
+		}, nil
 	}
 	msgService.nackFunc = func(context.Context, *inboundMessage) error {
 		close(nackCalled)
@@ -347,7 +365,7 @@ func TestReceiverFlowControlDelayedRetry(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			receiver, messagingService, unmarshaller := newReceiver(t)
+			receiver, messagingService, unmarshaller := newTestReceiver(t)
 			delay := 50 * time.Millisecond
 			// Increase delay on windows due to tick granularity
 			// https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/17197
@@ -357,8 +375,8 @@ func TestReceiverFlowControlDelayedRetry(t *testing.T) {
 			receiver.config.Flow.DelayedRetry.Delay = delay
 			var err error
 			// we want to return an error at first, then set the next consumer to a noop consumer
-			receiver.nextConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
-				receiver.nextConsumer = tc.nextConsumer
+			receiver.traceConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
+				receiver.traceConsumer = tc.nextConsumer
 				return fmt.Errorf("Some temporary error")
 			})
 			require.NoError(t, err)
@@ -371,7 +389,13 @@ func TestReceiverFlowControlDelayedRetry(t *testing.T) {
 				return nil
 			}
 			messagingService.receiveMessageFunc = func(context.Context) (*inboundMessage, error) {
-				return &inboundMessage{}, nil
+				validReceiveTopicVersion := "_telemetry/broker/trace/receive/v1"
+				return &inboundMessage{
+					Data: [][]byte{{}},
+					Properties: &amqp.MessageProperties{
+						To: &validReceiveTopicVersion,
+					},
+				}, nil
 			}
 			unmarshaller.unmarshalFunc = func(*inboundMessage) (ptrace.Traces, error) {
 				return ptrace.NewTraces(), nil
@@ -409,14 +433,14 @@ func TestReceiverFlowControlDelayedRetry(t *testing.T) {
 }
 
 func TestReceiverFlowControlDelayedRetryInterrupt(t *testing.T) {
-	receiver, messagingService, unmarshaller := newReceiver(t)
+	receiver, messagingService, unmarshaller := newTestReceiver(t)
 	// we won't wait 10 seconds since we will interrupt well before
 	receiver.config.Flow.DelayedRetry.Delay = 10 * time.Second
 	var err error
 	// we want to return an error at first, then set the next consumer to a noop consumer
-	receiver.nextConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
+	receiver.traceConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
 		// if we are called again, fatal
-		receiver.nextConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
+		receiver.traceConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
 			require.Fail(t, "Did not expect next consumer to be called again")
 			return nil
 		})
@@ -427,7 +451,13 @@ func TestReceiverFlowControlDelayedRetryInterrupt(t *testing.T) {
 
 	// populate mock messagingService and unmarshaller functions, expecting them each to be called at most once
 	messagingService.receiveMessageFunc = func(context.Context) (*inboundMessage, error) {
-		return &inboundMessage{}, nil
+		validReceiveTopicVersion := "_telemetry/broker/trace/receive/v1"
+		return &inboundMessage{
+			Data: [][]byte{{}},
+			Properties: &amqp.MessageProperties{
+				To: &validReceiveTopicVersion,
+			},
+		}, nil
 	}
 	unmarshaller.unmarshalFunc = func(*inboundMessage) (ptrace.Traces, error) {
 		return ptrace.NewTraces(), nil
@@ -455,7 +485,7 @@ func TestReceiverFlowControlDelayedRetryInterrupt(t *testing.T) {
 }
 
 func TestReceiverFlowControlDelayedRetryMultipleRetries(t *testing.T) {
-	receiver, messagingService, unmarshaller := newReceiver(t)
+	receiver, messagingService, unmarshaller := newTestReceiver(t)
 	// we won't wait 10 seconds since we will interrupt well before
 	retryInterval := 50 * time.Millisecond
 	// Increase delay on windows due to tick granularity
@@ -468,13 +498,13 @@ func TestReceiverFlowControlDelayedRetryMultipleRetries(t *testing.T) {
 	var err error
 	var currentRetries int64
 	// we want to return an error at first, then set the next consumer to a noop consumer
-	receiver.nextConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
+	receiver.traceConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
 		if currentRetries > 0 {
 			validateMetric(t, receiver.metrics.views.flowControlRecentRetries, currentRetries)
 		}
 		currentRetries++
 		if currentRetries == retryCount {
-			receiver.nextConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
+			receiver.traceConsumer, err = consumer.NewTraces(func(context.Context, ptrace.Traces) error {
 				return nil
 			})
 		}
@@ -491,7 +521,13 @@ func TestReceiverFlowControlDelayedRetryMultipleRetries(t *testing.T) {
 		return nil
 	}
 	messagingService.receiveMessageFunc = func(context.Context) (*inboundMessage, error) {
-		return &inboundMessage{}, nil
+		validReceiveTopicVersion := "_telemetry/broker/trace/receive/v1"
+		return &inboundMessage{
+			Data: [][]byte{{}},
+			Properties: &amqp.MessageProperties{
+				To: &validReceiveTopicVersion,
+			},
+		}, nil
 	}
 	unmarshaller.unmarshalFunc = func(*inboundMessage) (ptrace.Traces, error) {
 		return ptrace.NewTraces(), nil
@@ -522,14 +558,14 @@ func TestReceiverFlowControlDelayedRetryMultipleRetries(t *testing.T) {
 	validateMetric(t, receiver.metrics.views.flowControlSingleSuccess, nil)
 }
 
-func newReceiver(t *testing.T) (*solaceTracesReceiver, *mockMessagingService, *mockUnmarshaller) {
+func newTestReceiver(t *testing.T) (*solaceReceiver, *mockMessagingService, *mockUnmarshaller) {
 	unmarshaller := &mockUnmarshaller{}
 	service := &mockMessagingService{}
 	messagingServiceFactory := func() messagingService {
 		return service
 	}
 	metrics := newTestMetrics(t)
-	receiver := &solaceTracesReceiver{
+	receiver := &solaceReceiver{
 		settings: receivertest.NewNopCreateSettings(),
 		config: &Config{
 			Flow: FlowControl{
@@ -538,18 +574,19 @@ func newReceiver(t *testing.T) (*solaceTracesReceiver, *mockMessagingService, *m
 				},
 			},
 		},
-		nextConsumer:      consumertest.NewNop(),
-		metrics:           metrics,
-		unmarshaller:      unmarshaller,
-		factory:           messagingServiceFactory,
-		shutdownWaitGroup: &sync.WaitGroup{},
-		retryTimeout:      1 * time.Millisecond,
-		terminating:       &atomic.Bool{},
+		traceConsumer:      consumertest.NewNop(),
+		logsConsumer:       consumertest.NewNop(),
+		metrics:            metrics,
+		tracesUnmarshaller: unmarshaller,
+		factory:            messagingServiceFactory,
+		shutdownWaitGroup:  &sync.WaitGroup{},
+		retryTimeout:       1 * time.Millisecond,
+		terminated:        &atomic.Bool{},
 	}
 	return receiver, service, unmarshaller
 }
 
-func validateReceiverMetrics(t *testing.T, receiver *solaceTracesReceiver, receivedMsgVal, droppedMsgVal, fatalUnmarshalling, reportedSpan any) {
+func validateReceiverMetrics(t *testing.T, receiver *solaceReceiver, receivedMsgVal, droppedMsgVal, fatalUnmarshalling, reportedSpan any) {
 	validateMetric(t, receiver.metrics.views.receivedSpanMessages, receivedMsgVal)
 	validateMetric(t, receiver.metrics.views.droppedSpanMessages, droppedMsgVal)
 	validateMetric(t, receiver.metrics.views.fatalUnmarshallingErrors, fatalUnmarshalling)
