@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kafkareceiver
 
-go 1.23.0
+go 1.25
 
 require (
 	github.com/IBM/sarama v1.45.2
@@ -48,7 +48,7 @@ require (
 )
 
 require (
-	github.com/apache/thrift v0.22.0 // indirect
+	github.com/apache/thrift v0.24.0 // indirect
 	github.com/aws/aws-msk-iam-sasl-signer-go v1.0.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.36.4 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.29.16 // indirect
