@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/jaeger
 
-go 1.23.0
+go 1.25
 
 require (
 	github.com/gogo/protobuf v1.3.2
@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/apache/thrift v0.21.0 // indirect
+	github.com/apache/thrift v0.24.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
